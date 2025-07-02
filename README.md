@@ -30,7 +30,7 @@ A beautiful and interactive music recommendation app built with Streamlit that s
 
 1. **Clone or download the project**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Mr-rxa/music-rec.git
    cd music-rec
    ```
 
