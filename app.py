@@ -1,94 +1,110 @@
 import streamlit as st
-from textblob import TextBlob
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-import nltk
-
-nltk.download('punkt')
 
 # -----------------------------
-# 🔐 Secure Credentials
+# 🔐 Spotify Secrets
 # -----------------------------
-try:
-    CLIENT_ID = st.secrets["SPOTIPY_CLIENT_ID"]
-    CLIENT_SECRET = st.secrets["SPOTIPY_CLIENT_SECRET"]
-except:
-    st.error("Spotify credentials not found. Add them to secrets.")
-    st.stop()
+CLIENT_ID = st.secrets["SPOTIPY_CLIENT_ID"]
+CLIENT_SECRET = st.secrets["SPOTIPY_CLIENT_SECRET"]
 
-# Spotify connection
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET
 ))
 
 # -----------------------------
-# 🧠 Mood Detection
+# 🎨 UI Styling (Clean + Modern)
+# -----------------------------
+st.set_page_config(page_title="Mood Music 🎧", layout="wide")
+
+st.markdown("""
+<style>
+.main {
+    background-color: #0E1117;
+    color: white;
+}
+.card {
+    background: #1c1f26;
+    padding: 15px;
+    border-radius: 15px;
+    margin-bottom: 15px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🎧 Mood-Based Music Recommender")
+st.caption("Hindi • Punjabi • Haryanvi Only")
+
+# -----------------------------
+# 🧠 FIXED Mood Detection
 # -----------------------------
 def detect_mood(text):
     text = text.lower()
-    polarity = TextBlob(text).sentiment.polarity
 
-    if "angry" in text:
+    if any(word in text for word in ["energetic", "gym", "workout", "hype", "excited"]):
         return "energetic"
-    elif "love" in text or "romantic" in text:
-        return "happy"
-    elif polarity > 0.3:
-        return "happy"
-    elif polarity < -0.3:
+    elif any(word in text for word in ["sad", "depressed", "cry", "heartbreak"]):
         return "sad"
-    elif "tired" in text or "relax" in text:
+    elif any(word in text for word in ["calm", "relax", "peace", "sleep"]):
         return "calm"
+    elif any(word in text for word in ["happy", "fun", "party", "love"]):
+        return "happy"
     else:
-        return "calm"
+        return "happy"
 
 # -----------------------------
-# 🎵 Get Songs
+# 🎵 Regional Song Fetch
 # -----------------------------
 def get_songs(mood):
     mood_map = {
-        "happy": "happy upbeat",
-        "sad": "sad songs",
-        "energetic": "workout music",
-        "calm": "chill relaxing"
+        "happy": "bollywood happy songs",
+        "sad": "bollywood sad songs",
+        "energetic": "punjabi workout songs",
+        "calm": "lofi hindi chill"
     }
 
-    results = sp.search(q=mood_map[mood], type='track', limit=8)
+    query = mood_map[mood] + " hindi punjabi haryanvi"
+
+    results = sp.search(q=query, type='track', limit=10)
 
     songs = []
     for item in results['tracks']['items']:
         songs.append({
             "name": item['name'],
-            "artist": item['artists'][0]['name'],
-            "url": item['external_urls']['spotify'],
+            "artist": ", ".join([a['name'] for a in item['artists']]),
             "image": item['album']['images'][0]['url'],
+            "url": item['external_urls']['spotify'],
             "preview": item['preview_url']
         })
 
     return songs
 
 # -----------------------------
-# 🎧 UI
+# 🎧 INPUT
 # -----------------------------
-st.title("🎧 Mood Music Recommender")
+user_input = st.text_input("💭 How are you feeling?")
 
-user_input = st.text_input("How are you feeling?")
-
-if st.button("Recommend 🎵"):
-    if user_input.strip() == "":
-        st.warning("Please enter your mood")
+if st.button("🎵 Recommend"):
+    if not user_input.strip():
+        st.warning("Enter your mood")
     else:
         mood = detect_mood(user_input)
-        st.subheader(f"🧠 Detected Mood: {mood}")
+        st.subheader(f"🧠 Mood Detected: {mood.upper()}")
 
         songs = get_songs(mood)
 
-        for song in songs:
-            st.image(song["image"], width=200)
-            st.write(f"**{song['name']}** - {song['artist']}")
-            st.write(song["url"])
+        cols = st.columns(2)
 
-            if song["preview"]:
-                st.audio(song["preview"])
+        for i, song in enumerate(songs):
+            with cols[i % 2]:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                st.image(song["image"])
+                st.markdown(f"**{song['name']}**")
+                st.caption(song["artist"])
+                st.markdown(f"[▶ Play on Spotify]({song['url']})")
 
-            st.write("---")
+                if song["preview"]:
+                    st.audio(song["preview"])
+
+                st.markdown('</div>', unsafe_allow_html=True)
