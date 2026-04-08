@@ -2,6 +2,9 @@ import streamlit as st
 from textblob import TextBlob
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+import nltk
+
+nltk.download('punkt')
 
 # -----------------------------
 # 🔐 Secure Credentials
