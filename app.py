@@ -64,21 +64,31 @@ def get_songs(mood):
         "calm": "lofi hindi chill"
     }
 
-    query = mood_map[mood] + " hindi punjabi haryanvi"
+    query = mood_map[mood] + " hindi punjabi"
 
-    results = sp.search(q=query, type='track', limit=10)
+    try:
+        results = sp.search(
+            q=query,
+            type='track',
+            limit=10,
+            market='IN'   # 🔥 IMPORTANT FIX
+        )
 
-    songs = []
-    for item in results['tracks']['items']:
-        songs.append({
-            "name": item['name'],
-            "artist": ", ".join([a['name'] for a in item['artists']]),
-            "image": item['album']['images'][0]['url'],
-            "url": item['external_urls']['spotify'],
-            "preview": item['preview_url']
-        })
+        songs = []
+        for item in results['tracks']['items']:
+            songs.append({
+                "name": item['name'],
+                "artist": ", ".join([a['name'] for a in item['artists']]),
+                "image": item['album']['images'][0]['url'] if item['album']['images'] else None,
+                "url": item['external_urls']['spotify'],
+                "preview": item['preview_url']
+            })
 
-    return songs
+        return songs
+
+    except Exception as e:
+        st.error("⚠️ Spotify API error. Check your credentials or try again.")
+        return []
 
 # -----------------------------
 # 🎧 INPUT
