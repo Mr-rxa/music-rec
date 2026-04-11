@@ -1,4 +1,7 @@
 streamlit
+fastapi
+uvicorn
 spotipy
-textblob
-nltk
+vaderSentiment
+requests
+python-dotenv
