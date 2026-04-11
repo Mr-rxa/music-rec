@@ -6,14 +6,27 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="Mood AI 🎧", layout="wide")
 
-CLIENT_ID = st.secrets["SPOTIPY_CLIENT_ID"]
-CLIENT_SECRET = st.secrets["SPOTIPY_CLIENT_SECRET"]
+# ---------------- SECRETS ----------------
+try:
+    CLIENT_ID = st.secrets["SPOTIPY_CLIENT_ID"]
+    CLIENT_SECRET = st.secrets["SPOTIPY_CLIENT_SECRET"]
+except:
+    st.error("❌ Spotify credentials missing! Add them in Streamlit Secrets.")
+    st.stop()
 
-# ---------------- SPOTIFY ----------------
-sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET
-))
+# ---------------- SPOTIFY AUTH ----------------
+def get_spotify_client():
+    try:
+        auth_manager = SpotifyClientCredentials(
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET
+        )
+        return spotipy.Spotify(auth_manager=auth_manager)
+    except Exception as e:
+        st.error("❌ Spotify authentication failed")
+        st.stop()
+
+sp = get_spotify_client()
 
 # ---------------- MOOD MODEL ----------------
 analyzer = SentimentIntensityAnalyzer()
@@ -45,26 +58,38 @@ mood_map = {
     "calm": "lofi chill"
 }
 
-# ---------------- CACHING ----------------
-@st.cache_data(ttl=3600)
+# ---------------- SONG FETCH ----------------
+# ⚠️ TEMP: No cache to avoid token bugs (you can add later)
 def get_songs(mood, language, limit):
-    query = f"{mood_map[mood]} {lang_map[language]}"
+    try:
+        query = f"{mood_map[mood]} {lang_map[language]}"
 
-    results = sp.search(q=query, type='track', limit=limit, market='IN')
+        results = sp.search(
+            q=query,
+            type='track',
+            limit=limit,
+            market='IN'
+        )
 
-    songs = []
-    for item in results['tracks']['items']:
-        songs.append({
-            "name": item['name'],
-            "artist": ", ".join([a['name'] for a in item['artists']]),
-            "image": item['album']['images'][0]['url'] if item['album']['images'] else None,
-            "url": item['external_urls']['spotify'],
-            "preview": item['preview_url']
-        })
+        if not results or not results.get("tracks"):
+            return []
 
-    return songs
+        songs = []
+        for item in results['tracks']['items']:
+            songs.append({
+                "name": item['name'],
+                "artist": ", ".join([a['name'] for a in item['artists']]),
+                "image": item['album']['images'][0]['url'] if item['album']['images'] else None,
+                "url": item['external_urls']['spotify'],
+                "preview": item['preview_url']
+            })
 
-# ---------------- UI ----------------
+        return songs
+
+    except Exception as e:
+        return [{"error": str(e)}]
+
+# ---------------- UI STYLE ----------------
 st.markdown("""
 <style>
 .stApp {
@@ -95,6 +120,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------- HEADER ----------------
 st.markdown('<div class="title">🎧 Mood AI Recommender</div>', unsafe_allow_html=True)
 
 # ---------------- INPUT ----------------
@@ -113,7 +139,7 @@ with col3:
 if st.button("🔥 Recommend Songs"):
 
     if not mood_input.strip():
-        st.warning("Enter your mood")
+        st.warning("⚠️ Please enter your mood")
 
     else:
         with st.spinner("🎧 Finding perfect songs..."):
@@ -124,6 +150,17 @@ if st.button("🔥 Recommend Songs"):
 
             songs = get_songs(mood, language, limit)
 
+            # ---------- ERROR HANDLING ----------
+            if songs and "error" in songs[0]:
+                st.error("❌ Spotify API Error. Check credentials or logs.")
+                st.text(songs[0]["error"])
+                st.stop()
+
+            if not songs:
+                st.warning("No songs found. Try different mood or language.")
+                st.stop()
+
+            # ---------- DISPLAY ----------
             cols = st.columns(3)
 
             for i, song in enumerate(songs):
